@@ -10,6 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -24,10 +25,10 @@
             <form class="admin-login-form" id="adminLoginForm">
                 <div class="form-group">
                     <label for="adminUsername">
-                        <i class="fas fa-user"></i>
-                        Username
+                        <i class="fas fa-envelope"></i>
+                        Email
                     </label>
-                    <input type="text" id="adminUsername" placeholder="Enter admin username" required>
+                    <input type="email" id="adminUsername" placeholder="Enter admin email" required>
                 </div>
                 <div class="form-group">
                     <label for="adminPassword">
@@ -43,7 +44,7 @@
                 </div>
                 <div class="demo-credentials">
                     <p><i class="fas fa-info-circle"></i> Demo credentials:</p>
-                    <p>Username: <strong>admin</strong> | Password: <strong>admin123</strong></p>
+                    <p>Email: <strong>admin@currycrave.com</strong> | Password: <strong>admin123</strong></p>
                 </div>
                 <button type="submit" class="login-btn">
                     <i class="fas fa-sign-in-alt"></i>
@@ -244,13 +245,14 @@
                 <div class="page-header">
                     <h2>Order Management</h2>
                     <div class="header-actions">
-                        <select class="filter-select">
-                            <option>All Orders</option>
-                            <option>Pending</option>
-                            <option>Confirmed</option>
-                            <option>Preparing</option>
-                            <option>Delivered</option>
-                            <option>Cancelled</option>
+                        <select class="filter-select" onchange="filterOrdersByStatus(this.value)">
+                            <option value="all">All Orders</option>
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="preparing">Preparing</option>
+                            <option value="out_for_delivery">Out for Delivery</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
                         </select>
                         <button class="export-btn">
                             <i class="fas fa-download"></i> Export
@@ -260,6 +262,8 @@
                 <div class="orders-grid" id="ordersGrid">
                     <!-- Will be populated by JavaScript -->
                 </div>
+                <!-- Pagination Container -->
+                <div id="ordersPagination"></div>
             </div>
 
             <!-- Menu Page -->
@@ -305,6 +309,8 @@
                         </tbody>
                     </table>
                 </div>
+                <!-- Pagination Container -->
+                <div id="usersPagination"></div>
             </div>
 
             <!-- Analytics Page -->
@@ -318,11 +324,15 @@
                         <option>Last year</option>
                     </select>
                 </div>
-                <div class="analytics-grid">
-                    <!-- Analytics content will be added here -->
-                    <div class="analytics-placeholder">
-                        <i class="fas fa-chart-bar"></i>
-                        <p>Detailed analytics coming soon...</p>
+                <div class="analytics-charts-container"
+                    style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                    <div class="chart-card" style="height: 400px;">
+                        <h3>Revenue & Orders Trend</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-card" style="height: 400px;">
+                        <h3>Order Status Distribution</h3>
+                        <canvas id="orderStatusChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -426,6 +436,12 @@
                 <div class="form-group">
                     <label>Image URL</label>
                     <input type="text" id="itemImage" placeholder="assets/images/your-image.jpg">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="itemAvailability" checked style="width: auto;">
+                        Available for Ordering
+                    </label>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="cancel-btn" id="cancelMenuBtn">Cancel</button>

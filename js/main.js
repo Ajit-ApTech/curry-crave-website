@@ -691,7 +691,25 @@ async function loginUser(email, password) {
         }
     } catch (error) {
         console.error('Login error:', error);
-        showToast('Connection error. Please check your internet connection.');
+
+        // Mock Login Fallback
+        if (email === 'demo@currycrave.com' && password === 'demo123') {
+            const mockUser = {
+                _id: 'user_123',
+                name: 'Demo User',
+                email: 'demo@currycrave.com',
+                role: 'user'
+            };
+            localStorage.setItem('authToken', 'mock_token_123');
+            localStorage.setItem('user', JSON.stringify(mockUser));
+            localStorage.setItem('userLoggedIn', 'true');
+            localStorage.setItem('userName', mockUser.name);
+            localStorage.setItem('userEmail', mockUser.email);
+            showToast('Demo Login Successful!');
+            return { success: true, user: mockUser, token: 'mock_token_123' };
+        }
+
+        showToast('Connection error. Use demo@currycrave.com / demo123 to test.');
         return null;
     }
 }

@@ -60,10 +60,16 @@ function createTrackingModal() {
                 <button class="close-modal" id="closeTracking">
                     <i class="fas fa-times"></i>
                 </button>
-                <h2 class="modal-title">
-                    <i class="fas fa-shipping-fast" style="margin-right: 10px;"></i>
-                    Track Your Orders
-                </h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="modal-title" style="margin: 0;">
+                        <i class="fas fa-shipping-fast" style="margin-right: 10px;"></i>
+                        Track Your Orders
+                    </h2>
+                    <button onclick="refreshOrders()" class="refresh-orders-btn" title="Refresh orders" style="background: var(--primary-gold); color: var(--rich-black); border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
                 
                 <div class="tracking-content" id="trackingContent">
                     <!-- Will be populated by JavaScript -->
@@ -83,7 +89,7 @@ function openOrderTracking() {
 
     // Check if user is logged in
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
     if (!user || !token) {
         showToast('Please login to track your orders');
@@ -96,10 +102,42 @@ function openOrderTracking() {
 
     // Show modal
     document.getElementById('orderTrackingModal').classList.add('active');
+
+    // Start auto-refresh for real-time updates
+    startOrderRefresh();
 }
 
 function closeOrderTracking() {
     document.getElementById('orderTrackingModal')?.classList.remove('active');
+    // Stop auto-refresh when modal is closed
+    stopOrderRefresh();
+}
+
+// Auto-refresh functionality
+let orderRefreshInterval = null;
+
+function startOrderRefresh() {
+    // Clear any existing interval
+    stopOrderRefresh();
+
+    // Refresh orders every 10 seconds
+    orderRefreshInterval = setInterval(() => {
+        const modal = document.getElementById('orderTrackingModal');
+        // Only refresh if modal is still open
+        if (modal && modal.classList.contains('active')) {
+            console.log('Auto-refreshing orders...');
+            loadUserOrders();
+        } else {
+            stopOrderRefresh();
+        }
+    }, 10000); // 10 seconds
+}
+
+function stopOrderRefresh() {
+    if (orderRefreshInterval) {
+        clearInterval(orderRefreshInterval);
+        orderRefreshInterval = null;
+    }
 }
 
 async function loadUserOrders() {
@@ -115,44 +153,60 @@ async function loadUserOrders() {
     `;
 
     try {
-        // Try to fetch from API
-        const token = localStorage.getItem('authToken');
-        const response = await fetch('http://localhost:5001/api/order/user/history', {
+        // Fetch from API using correct endpoint
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const apiBaseUrl = window.API?.config?.BASE_URL || 'http://localhost:5001/api';
+        const response = await fetch(`${apiBaseUrl}/order/my-orders`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.data) {
-                displayOrders(result.data);
-                return;
-            }
+        const result = await response.json();
+
+        // Check if API call was successful
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to load orders');
         }
+
+        // Handle the orders array (could be empty)
+        const orders = result.orders || [];
+
+        if (orders.length === 0) {
+            // Display "no orders" message
+            trackingContent.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px;">
+                    <i class="fas fa-shopping-bag" style="font-size: 64px; color: var(--light-gold); margin-bottom: 20px; opacity: 0.5;"></i>
+                    <h3 style="color: var(--cream); margin-bottom: 10px;">No Orders Yet</h3>
+                    <p style="color: var(--light-gold); margin-bottom: 20px;">You haven't placed any orders yet. Start exploring our menu!</p>
+                    <button onclick="closeOrderTracking()" 
+                            style="padding: 12px 30px; background: var(--primary-gold); color: var(--rich-black); border: none; border-radius: 25px; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-utensils"></i> Browse Menu
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        // Display orders
+        displayOrders(orders);
+
     } catch (error) {
-        console.log('API unavailable, using demo data');
-    }
-
-    // Fallback to localStorage demo orders
-    const mockOrders = JSON.parse(localStorage.getItem('mockOrders') || '[]');
-
-    if (mockOrders.length === 0) {
+        console.error('Failed to load orders from MongoDB:', error);
         trackingContent.innerHTML = `
             <div style="text-align: center; padding: 60px 20px;">
-                <i class="fas fa-inbox" style="font-size: 64px; color: var(--light-gold); opacity: 0.3; margin-bottom: 20px;"></i>
-                <h3 style="color: var(--cream); margin-bottom: 10px;">No Orders Yet</h3>
-                <p style="color: var(--light-gold);">Place your first order to see it here!</p>
-                <button onclick="closeOrderTracking(); document.getElementById('menu').scrollIntoView({behavior: 'smooth'});" 
+                <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #e74c3c; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--cream); margin-bottom: 10px;">Failed to Load Orders</h3>
+                <p style="color: var(--light-gold);">Please check your connection and try again.</p>
+                <button onclick="loadUserOrders()" 
                         style="margin-top: 20px; padding: 12px 30px; background: var(--primary-gold); color: var(--rich-black); border: none; border-radius: 25px; cursor: pointer; font-weight: 600;">
-                    Browse Menu
+                    <i class="fas fa-redo"></i> Retry
                 </button>
             </div>
         `;
         return;
     }
 
-    displayOrders(mockOrders);
 }
 
 function displayOrders(orders) {
@@ -270,6 +324,71 @@ function displayOrders(orders) {
         const style = document.createElement('style');
         style.id = 'tracking-styles';
         style.textContent = `
+            .track-order-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: linear-gradient(135deg, var(--primary-gold), #F4E4C1);
+                color: var(--rich-black);
+                border: none;
+                padding: 12px 24px;
+                border-radius: 25px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .track-order-btn::before {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 0;
+                height: 0;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.3);
+                transform: translate(-50%, -50%);
+                transition: width 0.6s, height 0.6s;
+            }
+            
+            .track-order-btn:hover::before {
+                width: 300px;
+                height: 300px;
+            }
+            
+            .track-order-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
+            }
+            
+            .track-order-btn:active {
+                transform: translateY(0);
+            }
+            
+            .track-order-btn i {
+                font-size: 16px;
+                position: relative;
+                z-index: 1;
+            }
+            
+            .track-order-btn span {
+                position: relative;
+                z-index: 1;
+            }
+            
+            @media (max-width: 768px) {
+                .track-order-btn span {
+                    display: none;
+                }
+                .track-order-btn {
+                    padding: 12px 16px;
+                }
+            }
+            
             .status-timeline {
                 display: flex;
                 justify-content: space-between;
@@ -375,6 +494,15 @@ function displayOrders(orders) {
     }
 }
 
+// Manual refresh function
+function refreshOrders() {
+    console.log('Manual refresh triggered');
+    loadUserOrders();
+    showToast('🔄 Refreshing orders...');
+}
+
 // Make functions globally accessible
 window.openOrderTracking = openOrderTracking;
 window.closeOrderTracking = closeOrderTracking;
+window.loadUserOrders = loadUserOrders;
+window.refreshOrders = refreshOrders;

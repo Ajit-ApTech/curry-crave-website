@@ -508,12 +508,27 @@ const menuItems = [
 
 // Continue in next message...
 // ===== LOAD MENU ITEMS =====
-function loadMenuItems() {
+async function loadMenuItems() {
     const menuGrid = document.getElementById('menuGrid');
 
     if (!menuGrid) return;
 
-    menuGrid.innerHTML = menuItems.map(item => `
+    // Try to load from API first
+    let items = menuItems; // fallback
+    try {
+        const apiBaseUrl = window.API?.config?.BASE_URL || 'http://localhost:5001/api';
+        const response = await fetch(`${apiBaseUrl}/food?all=true`);
+        const result = await response.json();
+
+        if (result.success && result.foods && result.foods.length > 0) {
+            items = result.foods.filter(item => item.isAvailable !== false);
+            console.log('✅ Loaded', items.length, 'menu items from API');
+        }
+    } catch (error) {
+        console.log('⚠️ Using fallback menu items');
+    }
+
+    menuGrid.innerHTML = items.map(item => `
         <div class="menu-card" data-category="${item.category}">
             <div class="menu-image">
                 <img src="${item.image}" alt="${item.name}" onerror="this.src='assets/images/placeholder.jpg'">
@@ -530,22 +545,41 @@ function loadMenuItems() {
                 <p class="menu-description">${item.description}</p>
                 <div class="menu-footer">
                     <span class="menu-price">₹${item.price}</span>
-                    <button class="order-btn" onclick="addToCart(${item.id})">
+                    <button class="order-btn" onclick="addToCart('${item._id || item.id}', '${item.name}', ${item.price}, '${item.image}')">
                         <i class="fas fa-plus"></i> Add
                     </button>
                 </div>
             </div>
-        </div>
-    `).join('');
+        </div >
+        `).join('');
 }
 
 // ===== SPECIAL ITEMS =====
-function loadSpecialItems() {
-    const specialItems = menuItems.filter(item => item.badge &&
-        (item.badge === 'Popular' || item.badge === 'Chef Special' || item.badge === 'Bestseller')
+async function loadSpecialItems() {
+    const specialItemsContainer = document.getElementById('specialItems');
+    if (!specialItemsContainer) return;
+
+    let items = menuItems; // fallback
+
+    // Try to load from API
+    try {
+        const apiBaseUrl = window.API?.config?.BASE_URL || 'http://localhost:5001/api';
+        const response = await fetch(`${apiBaseUrl}/food/special`);
+        const result = await response.json();
+
+        if (result.success && result.foods && result.foods.length > 0) {
+            items = result.foods;
+            console.log('✅ Loaded special items from API');
+        }
+    } catch (error) {
+        console.log('⚠️ Using fallback special items');
+    }
+
+    // Filter special items
+    const specialItems = items.filter(item => item.badge &&
+        (item.badge === 'Popular' || item.badge === 'Chef Special' || item.badge === 'Bestseller' || item.badge === 'Special')
     ).slice(0, 3);
 
-    const specialItemsContainer = document.getElementById('specialItems');
 
     if (!specialItemsContainer) return;
 
@@ -559,24 +593,43 @@ function loadSpecialItems() {
                 <p class="special-description">${item.description}</p>
                 <div class="special-footer">
                     <span class="special-price">₹${item.price}</span>
-                    <button class="add-to-cart-btn" onclick="addToCart(${item.id})">
+                    <button class="add-to-cart-btn" onclick="addToCart('${item._id || item.id}', '${item.name}', ${item.price}, '${item.image}')">
                         <i class="fas fa-shopping-cart"></i> Add to Cart
                     </button>
                 </div>
             </div>
         </div>
-    `).join('');
+        `).join('');
 }
 
 // ===== ADD TO CART =====
-function addToCart(itemId) {
-    const item = menuItems.find(i => i.id === itemId);
+function addToCart(itemId, itemName, itemPrice, itemImage) {
+    let item;
 
-    if (!item) return;
+    // If called with 3 parameters (new way from API items)
+    if (itemName && itemPrice) {
+        item = {
+            id: itemId,
+            _id: itemId,
+            name: itemName,
+            price: itemPrice,
+            image: itemImage || 'assets/images/placeholder.jpg'
+        };
+    } else {
+        // Old way - find in menuItems (for backwards compatibility)
+        item = menuItems.find(i => i.id === itemId || i._id === itemId);
+    }
+
+    if (!item) {
+        console.error('Item not found:', itemId);
+        return;
+    }
 
     // Add to cart using cart.js function
     if (typeof window.addItemToCart === 'function') {
         window.addItemToCart(item);
+    } else {
+        console.error('addItemToCart function not found');
     }
 
     showToast(`${item.name} added to cart!`);

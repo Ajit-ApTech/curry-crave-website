@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Test Data - Curry Crave</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0D0D0D 0%, #1A1A1A 100%);
+            color: #F5F5DC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: #1A1A1A;
+            border: 2px solid #D4AF37;
+            border-radius: 20px;
+            padding: 50px 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(212, 175, 55, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            color: #D4AF37;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            color: #F4E4C1;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .status {
+            background: #2D2D2D;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #3D3D3D;
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: #F4E4C1;
+        }
+
+        .status-value {
+            color: #D4AF37;
+            font-weight: 600;
+        }
+
+        button {
+            background: linear-gradient(135deg, #D4AF37, #B8941C);
+            border: none;
+            color: #0D0D0D;
+            padding: 15px 40px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        button.secondary {
+            background: #2D2D2D;
+            color: #D4AF37;
+            border: 2px solid #D4AF37;
+        }
+
+        .success {
+            color: #2ECC71;
+            font-weight: 600;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .links {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #2D2D2D;
+        }
+
+        .links a {
+            color: #D4AF37;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 14px;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="icon">🧹</div>
+        <h1>Clear Test Data</h1>
+        <p>This will remove all test orders, cart items, and customer information from your browser's local storage.</p>
+
+        <div class="status" id="statusPanel">
+            <div class="status-item">
+                <span class="status-label">Mock Orders:</span>
+                <span class="status-value" id="ordersCount">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Cart Items:</span>
+                <span class="status-value" id="cartCount">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Customer Info:</span>
+                <span class="status-value" id="customerInfo">None</span>
+            </div>
+        </div>
+
+        <button onclick="clearAllData()">🗑️ Clear All Test Data</button>
+        <button class="secondary" onclick="checkData()">🔄 Refresh Status</button>
+
+        <div class="success" id="successMessage">
+            ✅ All test data cleared successfully!
+        </div>
+
+        <div class="links">
+            <a href="index.html">← Back to Website</a>
+            <a href="admin.html">Go to Admin Panel →</a>
+        </div>
+    </div>
+
+    <script>
+        // Check data on page load
+        window.addEventListener('DOMContentLoaded', checkData);
+
+        function checkData() {
+            // Check mock orders
+            const mockOrders = JSON.parse(localStorage.getItem('mockOrders') || '[]');
+            document.getElementById('ordersCount').textContent = mockOrders.length;
+
+            // Check cart
+            const cart = JSON.parse(localStorage.getItem('curryCraveCart') || '[]');
+            document.getElementById('cartCount').textContent = cart.length;
+
+            // Check customer info
+            const userName = localStorage.getItem('userName');
+            const userEmail = localStorage.getItem('userEmail');
+            const customerInfo = userName || userEmail ? `${userName || 'N/A'}` : 'None';
+            document.getElementById('customerInfo').textContent = customerInfo;
+
+            // Hide success message
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        function clearAllData() {
+            if (!confirm('Are you sure you want to clear all test data? This cannot be undone.')) {
+                return;
+            }
+
+            console.log('🧹 Clearing all test data...');
+
+            // Clear mock orders
+            localStorage.removeItem('mockOrders');
+            console.log('✅ Test orders cleared');
+
+            // Clear cart
+            localStorage.removeItem('curryCraveCart');
+            console.log('✅ Cart cleared');
+
+            // Clear customer info
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            console.log('✅ Customer info cleared');
+
+            console.log('🎉 All test data cleared!');
+
+            // Show success message
+            document.getElementById('successMessage').style.display = 'block';
+
+            // Update status
+            setTimeout(() => {
+                checkData();
+            }, 500);
+        }
+    </script>
+</body>
+
+</html>

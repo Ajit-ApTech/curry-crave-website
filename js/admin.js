@@ -130,12 +130,207 @@ document.getElementById('toggleAdminPassword')?.addEventListener('click', functi
 function initializeAdminDashboard() {
     setupNavigation();
     setupSidebar();
+    setupNotifications();
     loadDashboardData();
     setupMenuManagement();
     setupOrdersPage();
     setupUsersPage();
     setupAnalyticsPage();
+    startOrderNotificationPolling();
 }
+
+// ===== NOTIFICATION DROPDOWN =====
+function setupNotifications() {
+    const notificationBtn = document.getElementById('notificationBtn');
+    const notificationDropdown = document.getElementById('notificationDropdown');
+    const clearNotifications = document.getElementById('clearNotifications');
+
+    // Toggle dropdown
+    notificationBtn?.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const isVisible = notificationDropdown.style.display === 'block';
+        notificationDropdown.style.display = isVisible ? 'none' : 'block';
+
+        if (!isVisible) {
+            loadNotifications();
+        }
+    });
+
+    // Clear notifications
+    clearNotifications?.addEventListener('click', function () {
+        const notificationList = document.getElementById('notificationList');
+        const badge = document.getElementById('notificationBadge');
+
+        notificationList.innerHTML = `
+            <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>No notifications</p>
+            </div>
+        `;
+        badge.style.display = 'none';
+        badge.textContent = '0';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function (e) {
+        if (!notificationDropdown.contains(e.target) && e.target !== notificationBtn) {
+            notificationDropdown.style.display = 'none';
+        }
+    });
+}
+
+async function loadNotifications() {
+    const notificationList = document.getElementById('notificationList');
+    const badge = document.getElementById('notificationBadge');
+
+    // Get recent orders from MongoDB API
+    let recentOrders = [];
+
+    try {
+        const response = await fetch(`${API_URL}/order/admin/all`, {
+            headers: {
+                'Authorization': `Bearer ${getAuthToken()}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.orders) {
+                // Get 5 most recent orders
+                recentOrders = result.orders.slice(0, 5);
+            }
+        }
+    } catch (e) {
+        console.error('Error loading notifications:', e);
+    }
+
+    if (recentOrders.length === 0) {
+        notificationList.innerHTML = `
+            <div class="notification-empty">
+                <i class="fas fa-bell"></i>
+                <p>No recent orders</p>
+            </div>
+        `;
+        badge.style.display = 'none';
+        return;
+    }
+
+    // Update badge
+    badge.textContent = recentOrders.length;
+    badge.style.display = 'flex';
+
+    // Display notifications
+    notificationList.innerHTML = recentOrders.map(order => {
+        const orderId = order.orderId || order._id || 'N/A';
+        const customerName = order.user?.name || order.guestCustomer?.name || 'Guest';
+        const amount = order.totalAmount || 0;
+        const status = order.orderStatus || order.status || 'pending';
+        const time = formatTimeAgo(new Date(order.createdAt || order.date || Date.now()));
+
+        return `
+            <div class="notification-item" onclick="viewOrder('${order._id}')">
+                <div class="notification-icon new-order">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">New Order #${orderId}</div>
+                    <div class="notification-text">${customerName} - ₹${amount}</div>
+                    <div class="notification-time">${time} • ${status}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatTimeAgo(date) {
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
+}
+
+
+// ===== ORDER NOTIFICATION POLLING =====
+let lastOrderCount = 0;
+let orderPollingInterval = null;
+
+function startOrderNotificationPolling() {
+    // Check for new orders every 10 seconds
+    orderPollingInterval = setInterval(checkForNewOrders, 10000);
+
+    // Also check immediately
+    checkForNewOrders();
+}
+
+async function checkForNewOrders() {
+    try {
+        const response = await fetch(`${API_URL}/order/admin/all`, {
+            headers: {
+                'Authorization': `Bearer ${getAuthToken()}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+
+            if (result.success && result.orders) {
+                const currentOrderCount = result.count || result.orders.length;
+
+                // If there are more orders than before, show notification
+                if (lastOrderCount > 0 && currentOrderCount > lastOrderCount) {
+                    const newOrdersCount = currentOrderCount - lastOrderCount;
+                    showNewOrderNotification(newOrdersCount);
+
+                    // Update the notification badge
+                    updateNotificationBadge(newOrdersCount);
+
+                    // Reload orders if on orders page
+                    const ordersPage = document.getElementById('ordersPage');
+                    if (ordersPage && ordersPage.style.display !== 'none') {
+                        loadOrdersData();
+                    }
+                }
+
+                lastOrderCount = currentOrderCount;
+            }
+        }
+    } catch (error) {
+        console.log('Error checking for new orders:', error);
+    }
+}
+
+function showNewOrderNotification(count) {
+    showToast(`🔔 ${count} new order${count > 1 ? 's' : ''} received!`, 'success');
+
+    // Play notification sound (optional - you can add an audio file)
+    // const audio = new Audio('assets/sounds/notification.mp3');
+    // audio.play();
+}
+
+function updateNotificationBadge(count) {
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        const currentCount = parseInt(badge.textContent) || 0;
+        badge.textContent = currentCount + count;
+        badge.style.display = 'flex';
+    }
+}
+
+// Update orders badge in sidebar
+function updateOrdersBadge(count) {
+    const badge = document.getElementById('ordersBadge');
+    if (badge && count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+    } else if (badge) {
+        badge.style.display = 'none';
+    }
+}
+
 
 // ===== NAVIGATION =====
 function setupNavigation() {
@@ -281,53 +476,19 @@ function updateGrowthIndicator(element, growth, label) {
 }
 
 async function loadTopItems() {
-    const topItems = [
-        { rank: 1, name: 'Butter Chicken Curry', count: '234 orders', revenue: '₹69,666' },
-        { rank: 2, name: 'Biryani Bowl', count: '198 orders', revenue: '₹69,102' },
-        { rank: 3, name: 'Garlic Naan', count: '456 orders', revenue: '₹22,344' },
-        { rank: 4, name: 'Paneer Tikka Masala', count: '167 orders', revenue: '₹41,583' },
-        { rank: 5, name: 'Gulab Jamun', count: '189 orders', revenue: '₹16,821' }
-    ];
-
     const container = document.getElementById('topItemsList');
     if (!container) return;
 
-    container.innerHTML = topItems.map(item => `
-        <div class="top-item">
-            <div class="top-item-rank">${item.rank}</div>
-            <div class="top-item-info">
-                <div class="top-item-name">${item.name}</div>
-                <div class="top-item-count">${item.count}</div>
-            </div>
-            <div class="top-item-revenue">${item.revenue}</div>
+    // Show placeholder for top items (can be populated from analytics API later)
+    container.innerHTML = `
+        <div style="text-align: center; padding: 30px; color: var(--light-gold);">
+            <i class="fas fa-chart-bar" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
+            <p style="margin: 0;">Top items analytics coming soon</p>
         </div>
-    `).join('');
+    `;
 }
 
-function loadRecentOrders() {
-    const orders = [
-        { id: 'CC1001', customer: 'Rahul Kumar', items: 'Butter Chicken, Naan', amount: '₹348', status: 'confirmed', date: '2025-12-12' },
-        { id: 'CC1002', customer: 'Priya Sharma', items: 'Biryani Bowl', amount: '₹349', status: 'preparing', date: '2025-12-12' },
-        { id: 'CC1003', customer: 'Amit Patel', items: 'Paneer Tikka, Rice', amount: '₹448', status: 'pending', date: '2025-12-12' },
-        { id: 'CC1004', customer: 'Neha Singh', items: 'Dal Makhani, Garlic Naan', amount: '₹248', status: 'delivered', date: '2025-12-11' },
-        { id: 'CC1005', customer: 'Vikas Gupta', items: 'Veg Pulao, Raita', amount: '₹219', status: 'cancelled', date: '2025-12-11' }
-    ];
-
-    const tbody = document.getElementById('recentOrdersBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = orders.map(order => `
-        <tr>
-            <td><strong>${order.id}</strong></td>
-            <td>${order.customer}</td>
-            <td>${order.items}</td>
-            <td><strong>${order.amount}</strong></td>
-            <td><span class="status-badge status-${order.orderStatus}">${order.orderStatus}</span></td>
-            <td>${order.date}</td>
-            <td><button class="action-btn" onclick="viewOrder('${order.id}')">View</button></td>
-        </tr>
-    `).join('');
-}
+// loadRecentOrders() function removed - using displayRecentOrders() with real MongoDB data instead
 
 // ===== ORDERS PAGE =====
 function setupOrdersPage() {
@@ -337,7 +498,26 @@ function setupOrdersPage() {
 // Orders page state
 let currentOrdersPage = 1;
 let currentOrdersStatus = 'all';
+let currentSearchQuery = '';
 const ordersPerPage = 20;
+
+// Global search handler
+function handleGlobalSearch(query) {
+    currentSearchQuery = query.toLowerCase().trim();
+
+    // Determine which page is active and search accordingly
+    const ordersPage = document.getElementById('ordersPage');
+    const menuPage = document.getElementById('menuPage');
+    const usersPage = document.getElementById('usersPage');
+
+    if (ordersPage && ordersPage.style.display !== 'none') {
+        loadOrdersData();
+    } else if (menuPage && menuPage.style.display !== 'none') {
+        loadMenuData();
+    } else if (usersPage && usersPage.style.display !== 'none') {
+        loadUsersData();
+    }
+}
 
 async function loadOrdersData() {
     const container = document.getElementById('ordersGrid');
@@ -347,21 +527,54 @@ async function loadOrdersData() {
         // Show loading state
         container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--light-gold);"><i class="fas fa-spinner fa-spin" style="font-size: 32px;"></i><p style="margin-top: 15px;">Loading orders...</p></div>';
 
+        console.log('🔑 Admin token:', getAuthToken() ? 'EXISTS' : 'MISSING');
+
+        // Build URL with status filter if set
+        let apiUrl = `${API_URL}/order/admin/all`;
+        if (currentOrdersStatus && currentOrdersStatus !== 'all') {
+            apiUrl += `?status=${currentOrdersStatus}`;
+        }
+        console.log('📡 Fetching from:', apiUrl);
+
         // Fetch orders from API
-        const response = await fetch(`${API_URL}/admin/orders?page=${currentOrdersPage}&limit=${ordersPerPage}&status=${currentOrdersStatus}`, {
+        const response = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${getAuthToken()}`
             }
         });
 
         const result = await response.json();
+        console.log('📊 Response:', result.success ? `SUCCESS (${result.count || 0} orders)` : `FAILED: ${result.message}`);
 
         if (!result.success) {
             throw new Error(result.message || 'Failed to load orders');
         }
 
-        const orders = result.data;
-        const pagination = result.pagination;
+        // Handle response - could be result.orders or result.data
+        let orders = result.orders || result.data || [];
+
+        // Client-side filter by status
+        if (currentOrdersStatus && currentOrdersStatus !== 'all') {
+            orders = orders.filter(order => order.orderStatus === currentOrdersStatus);
+        }
+
+        // Client-side filter by search query
+        if (currentSearchQuery) {
+            orders = orders.filter(order => {
+                const orderId = (order.orderId || order._id || '').toLowerCase();
+                const customerName = (order.user?.name || order.guestCustomer?.name || '').toLowerCase();
+                const items = order.items?.map(i => i.name || '').join(' ').toLowerCase() || '';
+
+                return orderId.includes(currentSearchQuery) ||
+                    customerName.includes(currentSearchQuery) ||
+                    items.includes(currentSearchQuery);
+            });
+        }
+
+        const totalOrdersCount = result.count || orders.length;
+
+        // Update the orders badge in sidebar
+        updateOrdersBadge(totalOrdersCount);
 
         if (orders.length === 0) {
             container.innerHTML = `
@@ -383,8 +596,8 @@ async function loadOrdersData() {
                 day: 'numeric'
             });
 
-            // Get customer name
-            const customerName = order.user?.name || 'Unknown Customer';
+            // Get customer name - handle both user and guest customer
+            const customerName = order.user?.name || order.guestCustomer?.name || 'Guest Customer';
 
             // Format items list
             const itemsList = order.items.map(item =>
@@ -417,89 +630,23 @@ async function loadOrdersData() {
             `;
         }).join('');
 
-        // Update pagination info and controls
-        updateOrdersPagination(pagination);
+        // Update pagination info and controls (disabled for now)
+        // updateOrdersPagination(pagination);
 
     } catch (error) {
         console.error('Error loading orders:', error);
 
-        // Fallback to Mock Orders if API fails
-        try {
-            const mockOrders = JSON.parse(localStorage.getItem('mockOrders') || '[]');
-            const sampleOrders = generateSampleOrders(5); // Mix with some sample data if needed, or just use mock
-
-            // Allow combining real mock orders (from user actions) and generated ones if needed
-            // For now, let's prioritize user actions
-            let displayOrders = [...mockOrders];
-            if (displayOrders.length === 0) {
-                displayOrders = sampleOrders;
-            }
-
-            // Filter by status if needed
-            if (currentOrdersStatus !== 'all') {
-                displayOrders = displayOrders.filter(o => o.orderStatus === currentOrdersStatus);
-            }
-
-            container.innerHTML = displayOrders.map(order => {
-                // Check if it's a generated sample order or saved one
-                const orderDate = new Date(order.createdAt || order.date).toLocaleDateString('en-IN', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                });
-                const customerName = order.user?.name || order.customer || 'Unknown';
-                const itemsList = Array.isArray(order.items) ? order.items.map(i => `${i.name} (x${i.quantity})`).join(', ') : order.items;
-                const amount = typeof order.totalAmount === 'number' ? `₹${order.totalAmount}` : order.amount;
-                const orderId = order.orderId || order.id;
-                const status = order.orderStatus || order.status;
-
-                return `
-                <div class="order-card">
-                    <div class="order-card-content">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                            <div>
-                                <strong style="color: var(--primary-gold); font-size: 16px;">${orderId}</strong>
-                                <p style="color: var(--light-gold); font-size: 13px; margin-top: 3px;">${orderDate}</p>
-                            </div>
-                            <span class="status-badge status-${status}">${status.replace('_', ' ')}</span>
-                        </div>
-                        <div style="margin-bottom: 12px;">
-                            <p style="color: var(--cream); font-weight: 600; margin-bottom: 5px;">${customerName}</p>
-                            <p style="color: var(--light-gold); font-size: 14px;">${itemsList}</p>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 15px; border-top: 1px solid var(--charcoal);">
-                            <strong style="color: var(--vibrant-green); font-size: 18px;">${amount}</strong>
-                            <div style="display:flex; gap:10px;">
-                                <select onchange="updateOrderStatus('${orderId}', this.value)" style="padding: 5px; border-radius: 4px; background: var(--charcoal); color: var(--cream); border: 1px solid var(--primary-gold);">
-                                    <option value="pending" ${status === 'pending' ? 'selected' : ''}>Pending</option>
-                                    <option value="confirmed" ${status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
-                                    <option value="preparing" ${status === 'preparing' ? 'selected' : ''}>Preparing</option>
-                                    <option value="out_for_delivery" ${status === 'out_for_delivery' ? 'selected' : ''}>Out for Delivery</option>
-                                    <option value="delivered" ${status === 'delivered' ? 'selected' : ''}>Delivered</option>
-                                    <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                                </select>
-                                <button class="view-btn" onclick="viewOrder('${orderId}')">View Details</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            }).join('');
-
-            showToast('Showing Demo/Offline Data');
-
-        } catch (fallbackError) {
-            container.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 60px;">
-                    <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #e74c3c;"></i>
-                    <h3 style="color: var(--cream); margin-top: 20px;">Failed to load orders</h3>
-                    <p style="color: var(--light-gold); margin-top: 10px;">${error.message}</p>
-                    <button class="view-btn" onclick="loadOrdersData()" style="margin-top: 20px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
+        // Show error message with retry option
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 60px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #e74c3c; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--cream); margin-bottom: 10px;">Failed to Load Orders</h3>
+                <p style="color: var(--light-gold); margin-bottom: 20px;">Unable to connect to the server. Please check your connection and try again.</p>
+                <button class="view-btn" onclick="loadOrdersData()">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
     }
 }
 
@@ -550,62 +697,47 @@ function filterOrdersByStatus(status) {
     loadOrdersData();
 }
 
-function generateSampleOrders(count) {
-    const customers = ['Rahul Kumar', 'Priya Sharma', 'Amit Patel', 'Neha Singh', 'Vikas Gupta', 'Anjali Reddy', 'Rohit Verma', 'Sneha Jain'];
-    const items = ['Butter Chicken, Naan', 'Biryani Bowl', 'Paneer Tikka, Rice', 'Dal Makhani, Garlic Naan', 'Veg Pulao, Raita'];
-    const statuses = ['pending', 'confirmed', 'preparing', 'delivered', 'cancelled'];
 
-    return Array.from({ length: count }, (_, i) => ({
-        id: `CC${1001 + i}`,
-        customer: customers[Math.floor(Math.random() * customers.length)],
-        items: items[Math.floor(Math.random() * items.length)],
-        amount: `₹${Math.floor(Math.random() * 400) + 150}`,
-        orderStatus: statuses[Math.floor(Math.random() * statuses.length)],
-        date: new Date(2025, 11, Math.floor(Math.random() * 12) + 1).toISOString().split('T')[0]
-    }));
-}
 
 async function viewOrder(orderId) {
     try {
-        let order = null;
+        // Close notification dropdown if open
+        const notificationDropdown = document.getElementById('notificationDropdown');
+        if (notificationDropdown) {
+            notificationDropdown.style.display = 'none';
+        }
 
-        // Try to fetch from API first
-        try {
-            const response = await fetch(`${API_URL}/admin/order/${orderId}`, {
-                headers: {
-                    'Authorization': `Bearer ${getAuthToken()}`
-                }
-            });
+        // Navigate to orders page first
+        const ordersNavItem = document.querySelector('[data-page="orders"]');
+        if (ordersNavItem) {
+            // Update active nav state
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            ordersNavItem.classList.add('active');
 
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success) {
-                    order = result.data;
-                }
+            // Show orders page
+            showPage('orders');
+        }
+
+        // Fetch order from MongoDB API
+        const response = await fetch(`${API_URL}/order/${orderId}`, {
+            headers: {
+                'Authorization': `Bearer ${getAuthToken()}`
             }
-        } catch (apiError) {
-            console.log('API fetch failed, trying localStorage');
-        }
+        });
 
-        // Fallback to localStorage
-        if (!order) {
-            const mockOrders = JSON.parse(localStorage.getItem('mockOrders') || '[]');
-            const sampleOrders = generateSampleOrders(10);
-            const allOrders = [...mockOrders, ...sampleOrders];
-            order = allOrders.find(o => o.orderId === orderId || o._id === orderId || o.id === orderId);
-        }
+        const result = await response.json();
 
-        if (!order) {
+        if (!result.success || !result.order) {
             showToast('Order not found', 'error');
             return;
         }
 
         // Display order details in modal
-        displayOrderDetailsModal(order);
+        displayOrderDetailsModal(result.order);
 
     } catch (error) {
         console.error('Error viewing order:', error);
-        showToast('Failed to load order details', 'error');
+        showToast('Failed to load order details. Please check your connection.', 'error');
     }
 }
 
@@ -624,10 +756,10 @@ function displayOrderDetailsModal(order) {
         minute: '2-digit'
     });
 
-    // Get customer info
-    const customerName = order.user?.name || order.customer || 'Unknown Customer';
-    const customerEmail = order.user?.email || 'N/A';
-    const customerPhone = order.user?.phone || order.phone || 'N/A';
+    // Get customer info - check both user (authenticated) and guestCustomer (checkout form)
+    const customerName = order.user?.name || order.guestCustomer?.name || order.customerName || order.customer || 'Unknown Customer';
+    const customerEmail = order.user?.email || order.guestCustomer?.email || order.customerEmail || 'N/A';
+    const customerPhone = order.user?.phone || order.guestCustomer?.phone || order.customerPhone || order.phone || 'N/A';
 
     // Get order ID
     const displayOrderId = order.orderId || order.id || order._id;
@@ -766,7 +898,7 @@ function displayOrderDetailsModal(order) {
                         <option value="delivered" ${currentStatus === 'delivered' ? 'selected' : ''}>Delivered</option>
                         <option value="cancelled" ${currentStatus === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                     </select>
-                    <button onclick="updateOrderStatusFromModal('${displayOrderId}')" class="submit-btn" style="padding: 12px 24px;">
+                    <button onclick="updateOrderStatusFromModal('${order._id}')" class="submit-btn" style="padding: 12px 24px;">
                         <i class="fas fa-sync-alt"></i> Update
                     </button>
                 </div>
@@ -1017,7 +1149,7 @@ function closeMenuModal() {
 async function saveMenuItem() {
     const itemData = {
         name: document.getElementById('itemName').value,
-        category: document.getElementById('itemCategory').value,
+        category: document.getElementById('itemCategory').value.toLowerCase(), // Convert to lowercase
         price: parseInt(document.getElementById('itemPrice').value),
         description: document.getElementById('itemDescription').value,
         image: document.getElementById('itemImage').value || 'assets/images/placeholder.jpg',
@@ -1113,7 +1245,6 @@ async function loadUsersData() {
         }
 
         const users = result.data;
-        const pagination = result.pagination;
 
         if (users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--light-gold);">No users found</td></tr>';
@@ -1141,8 +1272,8 @@ async function loadUsersData() {
             `;
         }).join('');
 
-        // Update pagination info and controls
-        updateUsersPagination(pagination);
+        // Update pagination info and controls (disabled for now)
+        // updateUsersPagination(pagination);
 
     } catch (error) {
         console.error('Error loading users:', error);
@@ -1280,9 +1411,136 @@ function goToUsersPage(page) {
 
 
 
-function viewUser(userId) {
-    showToast(`Viewing user ${userId}`);
-    // Add user details modal here
+async function viewUser(userId) {
+    try {
+        // Show loading toast
+        showToast('Loading user details...');
+
+        // Fetch user details from API
+        const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${getAuthToken()}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to load user');
+        }
+
+        const user = result.user || result.data;
+        displayUserDetailsModal(user);
+
+    } catch (error) {
+        console.error('Error loading user:', error);
+
+        // Try to find user in the current displayed data (demo fallback)
+        const demoUser = {
+            _id: userId,
+            name: 'User',
+            email: 'user@example.com',
+            phone: 'N/A',
+            orderCount: 0,
+            totalSpent: 0,
+            createdAt: new Date().toISOString()
+        };
+        displayUserDetailsModal(demoUser);
+    }
+}
+
+function displayUserDetailsModal(user) {
+    // Remove any existing modal
+    const existingModal = document.getElementById('userDetailsModal');
+    if (existingModal) existingModal.remove();
+
+    // Format date
+    const joinedDate = new Date(user.createdAt).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    // Create modal HTML
+    const modal = document.createElement('div');
+    modal.id = 'userDetailsModal';
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>User Details</h3>
+                <button class="close-modal" onclick="closeUserModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="padding: 20px;">
+                <!-- User Avatar & Name -->
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-gold), var(--light-gold)); display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 32px; color: var(--rich-black); font-weight: 700;">
+                        ${user.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <h2 style="color: var(--cream); margin: 0 0 5px 0;">${user.name || 'Unknown'}</h2>
+                    <p style="color: var(--light-gold); margin: 0;">User ID: #${user._id?.slice(-6)?.toUpperCase() || 'N/A'}</p>
+                </div>
+                
+                <!-- User Info Cards -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div style="background: rgba(212, 175, 55, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                        <p style="color: var(--light-gold); font-size: 12px; margin: 0 0 5px 0;"><i class="fas fa-envelope"></i> Email</p>
+                        <p style="color: var(--cream); margin: 0; font-weight: 600;">${user.email || 'N/A'}</p>
+                    </div>
+                    <div style="background: rgba(212, 175, 55, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                        <p style="color: var(--light-gold); font-size: 12px; margin: 0 0 5px 0;"><i class="fas fa-phone"></i> Phone</p>
+                        <p style="color: var(--cream); margin: 0; font-weight: 600;">${user.phone || 'N/A'}</p>
+                    </div>
+                    <div style="background: rgba(212, 175, 55, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                        <p style="color: var(--light-gold); font-size: 12px; margin: 0 0 5px 0;"><i class="fas fa-shopping-bag"></i> Total Orders</p>
+                        <p style="color: var(--primary-gold); margin: 0; font-weight: 700; font-size: 20px;">${user.orderCount || 0}</p>
+                    </div>
+                    <div style="background: rgba(212, 175, 55, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                        <p style="color: var(--light-gold); font-size: 12px; margin: 0 0 5px 0;"><i class="fas fa-rupee-sign"></i> Total Spent</p>
+                        <p style="color: var(--vibrant-green); margin: 0; font-weight: 700; font-size: 20px;">₹${(user.totalSpent || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                </div>
+                
+                <!-- Additional Info -->
+                <div style="background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="color: var(--light-gold);"><i class="fas fa-calendar"></i> Member Since</span>
+                        <span style="color: var(--cream);">${joinedDate}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--light-gold);"><i class="fas fa-map-marker-alt"></i> Address</span>
+                        <span style="color: var(--cream);">${user.address || 'Not provided'}</span>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="viewUserOrders('${user._id}')" class="view-btn" style="flex: 1; padding: 12px;">
+                        <i class="fas fa-shopping-bag"></i> View Orders
+                    </button>
+                    <button onclick="closeUserModal()" class="view-btn" style="flex: 1; padding: 12px; background: rgba(255, 255, 255, 0.1);">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function closeUserModal() {
+    const modal = document.getElementById('userDetailsModal');
+    if (modal) modal.remove();
+}
+
+function viewUserOrders(userId) {
+    closeUserModal();
+    // Navigate to orders page and filter by user
+    showPage('orders');
+    showToast(`Showing orders for user #${userId.slice(-6).toUpperCase()}`);
 }
 
 // ===== ANALYTICS PAGE =====
@@ -1482,46 +1740,36 @@ window.goToOrdersPage = goToOrdersPage;
 window.filterOrdersByStatus = filterOrdersByStatus;
 window.goToUsersPage = goToUsersPage;
 window.updateOrderStatus = updateOrderStatus;
+window.handleGlobalSearch = handleGlobalSearch;
+window.closeUserModal = closeUserModal;
+window.viewUserOrders = viewUserOrders;
 
 async function updateOrderStatus(orderId, newStatus) {
     try {
-        // Try API first
-        if (localStorage.getItem('authToken') !== 'mock_admin_token') {
-            const response = await fetch(`${API_URL}/admin/order/${orderId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAuthToken()}`
-                },
-                body: JSON.stringify({ status: newStatus })
-            });
-            const result = await response.json();
-            if (result.success) {
-                showToast(`Order status updated to ${newStatus}`);
-                loadOrdersData(); // Reload to refresh view
-                return;
-            }
-        }
-    } catch (e) {
-        console.log('API update failed, trying mock update');
-    }
-
-    // Mock Update
-    try {
-        const mockOrders = JSON.parse(localStorage.getItem('mockOrders') || '[]');
-        const orderIndex = mockOrders.findIndex(o => (o.orderId === orderId || o._id === orderId));
-
-        if (orderIndex !== -1) {
-            mockOrders[orderIndex].orderStatus = newStatus;
-            localStorage.setItem('mockOrders', JSON.stringify(mockOrders));
-            showToast(`Order status updated to ${newStatus} (Demo)`);
-            loadOrdersData(); // Reload UI
+        // Update order status in MongoDB via API
+        const response = await fetch(`${API_URL}/order/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getAuthToken()}`
+            },
+            body: JSON.stringify({ orderStatus: newStatus })
+        });
+        const result = await response.json();
+        if (result.success) {
+            // Format status name for display
+            const statusDisplay = newStatus.split('_').map(word =>
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+            showToast(`✅ Order status updated to: ${statusDisplay}`, 'success');
+            loadOrdersData(); // Reload to refresh view
+            return;
         } else {
-            showToast('Order not found in demo data', 'error');
+            throw new Error(result.message || 'Failed to update status');
         }
-    } catch (e) {
-        console.error('Error updating mock order:', e);
-        showToast('Failed to update status', 'error');
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        showToast('❌ Failed to update order status. Please check your connection.', 'error');
     }
 }
 

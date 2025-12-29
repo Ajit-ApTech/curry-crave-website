@@ -18,6 +18,7 @@ function initializeApp() {
     setupContactForm();
     setupScrollEffects();
     setupWhatsApp();
+    loadSiteSettings(); // Load dynamic settings from admin panel
 }
 
 // ===== NAVIGATION =====
@@ -659,6 +660,8 @@ function setupContactForm() {
 }
 
 // ===== WHATSAPP =====
+let siteWhatsappNumber = '919876543210'; // Default, will be updated by settings
+
 function setupWhatsApp() {
     const whatsappBtn = document.getElementById('whatsappBtn');
 
@@ -668,8 +671,7 @@ function setupWhatsApp() {
         const message = document.getElementById('message')?.value || 'Hello, I would like to know more about Curry Crave.';
 
         const whatsappMessage = encodeURIComponent(`Name: ${name}\nPhone: ${phone}\nMessage: ${message}`);
-        const whatsappNumber = '919876543210'; // Replace with your actual WhatsApp number
-        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+        const whatsappUrl = `https://wa.me/${siteWhatsappNumber}?text=${whatsappMessage}`;
 
         window.open(whatsappUrl, '_blank');
     });
@@ -806,5 +808,169 @@ async function getMenuItems() {
         return data.data;
     } catch (error) {
         console.error('Error fetching menu:', error);
+    }
+}
+
+// ===== LOAD SITE SETTINGS FROM ADMIN PANEL =====
+async function loadSiteSettings() {
+    try {
+        const response = await fetch(`${API_URL}/settings`);
+        const result = await response.json();
+
+        if (result.success && result.settings) {
+            const settings = result.settings;
+            const brandName = settings.restaurantName || 'Curry Crave';
+            const tagline = settings.tagline || 'Premium Food Delivery';
+
+            // ===== UPDATE BRAND/LOGO NAME EVERYWHERE =====
+
+            // Update Page Title
+            const pageTitle = document.getElementById('pageTitle');
+            if (pageTitle) {
+                document.title = `${brandName} - ${tagline}`;
+            }
+
+            // Update Navbar Logo/Brand Name
+            const navBrandName = document.getElementById('navBrandName');
+            if (navBrandName) {
+                navBrandName.textContent = brandName;
+            }
+
+            // Update Hero Section Brand Name
+            const heroBrandName = document.getElementById('heroBrandName');
+            if (heroBrandName) {
+                heroBrandName.textContent = brandName;
+            }
+
+            // Update About Section Brand Name
+            const aboutBrandName = document.getElementById('aboutBrandName');
+            if (aboutBrandName) {
+                aboutBrandName.textContent = brandName;
+            }
+
+            // Update Footer Title
+            const footerTitle = document.getElementById('footerTitle');
+            if (footerTitle) {
+                footerTitle.textContent = brandName;
+            }
+
+            // Update Footer Tagline
+            const footerTagline = document.getElementById('footerTagline');
+            if (footerTagline) {
+                footerTagline.textContent = tagline;
+            }
+
+            // Update Footer Copyright
+            const footerCopyright = document.getElementById('footerCopyright');
+            if (footerCopyright) {
+                const year = new Date().getFullYear();
+                footerCopyright.innerHTML = `&copy; ${year} ${brandName}. All rights reserved.`;
+            }
+
+            // ===== UPDATE CONTACT SECTION =====
+
+            // Address
+            const contactAddress = document.getElementById('contactAddress');
+            if (contactAddress && settings.address) {
+                const addr = settings.address;
+                contactAddress.innerHTML = `${addr.street}<br>${addr.city}, ${addr.state} ${addr.pincode}`;
+            }
+
+            // Phone
+            const contactPhone = document.getElementById('contactPhone');
+            if (contactPhone) {
+                contactPhone.innerHTML = `${settings.phone || '+91 98765 43210'}<br>${settings.alternatePhone || '+91 87654 32109'}`;
+            }
+
+            // Email
+            const contactEmail = document.getElementById('contactEmail');
+            if (contactEmail) {
+                contactEmail.innerHTML = `${settings.email || 'info@currycrave.com'}<br>${settings.supportEmail || 'support@currycrave.com'}`;
+            }
+
+            // Business Hours
+            const contactHours = document.getElementById('contactHours');
+            if (contactHours && settings.businessHours) {
+                contactHours.innerHTML = `${settings.businessHours.weekday}<br>${settings.businessHours.weekend}`;
+            }
+
+            // WhatsApp Number
+            if (settings.whatsappNumber) {
+                siteWhatsappNumber = settings.whatsappNumber.replace(/[^\d+]/g, '').replace('+', '');
+            }
+
+            // ===== UPDATE SOCIAL MEDIA LINKS =====
+            if (settings.socialMedia) {
+                const socialFacebook = document.getElementById('socialFacebook');
+                if (socialFacebook && settings.socialMedia.facebook) {
+                    socialFacebook.href = settings.socialMedia.facebook;
+                }
+
+                const socialInstagram = document.getElementById('socialInstagram');
+                if (socialInstagram && settings.socialMedia.instagram) {
+                    socialInstagram.href = settings.socialMedia.instagram;
+                }
+
+                const socialTwitter = document.getElementById('socialTwitter');
+                if (socialTwitter && settings.socialMedia.twitter) {
+                    socialTwitter.href = settings.socialMedia.twitter;
+                }
+
+                const socialYoutube = document.getElementById('socialYoutube');
+                if (socialYoutube && settings.socialMedia.youtube) {
+                    socialYoutube.href = settings.socialMedia.youtube;
+                }
+            }
+
+            // ===== UPDATE ABOUT SECTION =====
+            if (settings.aboutSection) {
+                // About Image
+                const aboutImage = document.getElementById('aboutImage');
+                if (aboutImage && settings.aboutSection.image) {
+                    aboutImage.src = settings.aboutSection.image;
+                }
+
+                // Experience Badge
+                const aboutExperienceYears = document.getElementById('aboutExperienceYears');
+                if (aboutExperienceYears && settings.aboutSection.experienceYears) {
+                    aboutExperienceYears.textContent = settings.aboutSection.experienceYears;
+                }
+
+                const aboutExperienceText = document.getElementById('aboutExperienceText');
+                if (aboutExperienceText && settings.aboutSection.experienceText) {
+                    aboutExperienceText.textContent = settings.aboutSection.experienceText;
+                }
+
+                // About Paragraphs
+                const aboutParagraph1 = document.getElementById('aboutParagraph1');
+                if (aboutParagraph1 && settings.aboutSection.paragraph1) {
+                    aboutParagraph1.textContent = settings.aboutSection.paragraph1;
+                }
+
+                const aboutParagraph2 = document.getElementById('aboutParagraph2');
+                if (aboutParagraph2 && settings.aboutSection.paragraph2) {
+                    aboutParagraph2.textContent = settings.aboutSection.paragraph2;
+                }
+
+                // Feature Items
+                if (settings.aboutSection.features) {
+                    const feature1 = document.getElementById('aboutFeature1');
+                    if (feature1) feature1.textContent = settings.aboutSection.features.feature1 || 'Fresh Ingredients';
+
+                    const feature2 = document.getElementById('aboutFeature2');
+                    if (feature2) feature2.textContent = settings.aboutSection.features.feature2 || 'Expert Chefs';
+
+                    const feature3 = document.getElementById('aboutFeature3');
+                    if (feature3) feature3.textContent = settings.aboutSection.features.feature3 || 'Fast Delivery';
+
+                    const feature4 = document.getElementById('aboutFeature4');
+                    if (feature4) feature4.textContent = settings.aboutSection.features.feature4 || 'Premium Quality';
+                }
+            }
+
+            console.log('✅ Site settings loaded successfully - Brand:', brandName);
+        }
+    } catch (error) {
+        console.log('⚠️ Could not load site settings, using defaults');
     }
 }

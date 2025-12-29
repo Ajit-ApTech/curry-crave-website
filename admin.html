@@ -352,52 +352,223 @@
             <div class="page-content" id="settingsPage" style="display: none;">
                 <div class="page-header">
                     <h2>Settings</h2>
+                    <button class="save-btn" id="saveAllSettingsBtn"
+                        style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-save"></i> Save All Changes
+                    </button>
                 </div>
                 <div class="settings-grid">
+                    <!-- Restaurant / Brand Information -->
                     <div class="settings-card">
-                        <h3><i class="fas fa-store"></i> Restaurant Information</h3>
-                        <form class="settings-form">
+                        <h3><i class="fas fa-store"></i> Brand / Logo Information</h3>
+                        <p style="color: var(--light-gold); font-size: 13px; margin-bottom: 15px;">
+                            <i class="fas fa-info-circle"></i> This name appears in the logo, navbar, hero section, and
+                            throughout the website.
+                        </p>
+                        <form class="settings-form" id="restaurantInfoForm">
                             <div class="form-group">
-                                <label>Restaurant Name</label>
-                                <input type="text" value="Curry Crave">
+                                <label><i class="fas fa-crown" style="color: #FFD700;"></i> Brand / Logo Name</label>
+                                <input type="text" id="settingRestaurantName" value="Curry Crave"
+                                    placeholder="e.g., Curry Crave">
                             </div>
                             <div class="form-group">
-                                <label>Email</label>
-                                <input type="email" value="info@currycrave.com">
+                                <label>Tagline / Slogan</label>
+                                <input type="text" id="settingTagline" value="Premium Food Delivery"
+                                    placeholder="e.g., Premium Food Delivery">
                             </div>
-                            <div class="form-group">
-                                <label>Phone</label>
-                                <input type="tel" value="+91 98765 43210">
-                            </div>
-                            <button type="submit" class="save-btn">Save Changes</button>
                         </form>
                     </div>
 
+                    <!-- Contact Information -->
+                    <div class="settings-card">
+                        <h3><i class="fas fa-address-book"></i> Contact Information</h3>
+                        <form class="settings-form" id="contactInfoForm">
+                            <div class="form-group">
+                                <label>Primary Email</label>
+                                <input type="email" id="settingEmail" value="info@currycrave.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Support Email</label>
+                                <input type="email" id="settingSupportEmail" value="support@currycrave.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Primary Phone</label>
+                                <input type="tel" id="settingPhone" value="+91 98765 43210">
+                            </div>
+                            <div class="form-group">
+                                <label>Alternate Phone</label>
+                                <input type="tel" id="settingAlternatePhone" value="+91 87654 32109">
+                            </div>
+                            <div class="form-group">
+                                <label>WhatsApp Number (with country code, no spaces)</label>
+                                <input type="tel" id="settingWhatsapp" value="+919876543210">
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="settings-card">
+                        <h3><i class="fas fa-map-marker-alt"></i> Address</h3>
+                        <form class="settings-form" id="addressForm">
+                            <div class="form-group">
+                                <label>Street Address</label>
+                                <input type="text" id="settingStreet" value="123 Food Street, Culinary District">
+                            </div>
+                            <div class="form-group">
+                                <label>City</label>
+                                <input type="text" id="settingCity" value="Hyderabad">
+                            </div>
+                            <div class="form-group">
+                                <label>State</label>
+                                <input type="text" id="settingState" value="Telangana">
+                            </div>
+                            <div class="form-group">
+                                <label>Pincode</label>
+                                <input type="text" id="settingPincode" value="500001">
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Business Hours -->
+                    <div class="settings-card">
+                        <h3><i class="fas fa-clock"></i> Business Hours</h3>
+                        <form class="settings-form" id="hoursForm">
+                            <div class="form-group">
+                                <label>Weekday Hours</label>
+                                <input type="text" id="settingWeekdayHours" value="Mon - Sat: 10:00 AM - 11:00 PM">
+                            </div>
+                            <div class="form-group">
+                                <label>Weekend Hours</label>
+                                <input type="text" id="settingWeekendHours" value="Sunday: 11:00 AM - 10:00 PM">
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- About Section -->
+                    <div class="settings-card" style="grid-column: 1 / -1;">
+                        <h3><i class="fas fa-info-circle"></i> About Section</h3>
+                        <p style="color: var(--light-gold); font-size: 13px; margin-bottom: 15px;">
+                            <i class="fas fa-image"></i> Customize the "About Us" section on the website
+                        </p>
+                        <form class="settings-form" id="aboutForm">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <!-- Left Column -->
+                                <div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-image" style="color: #3498db;"></i> About Image
+                                            URL</label>
+                                        <input type="text" id="settingAboutImage" value="assets/images/about-chef.jpg"
+                                            placeholder="assets/images/about-chef.jpg">
+                                        <small style="color: var(--light-gold); font-size: 11px;">Enter image path or
+                                            URL</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-award" style="color: #FFD700;"></i> Experience Badge
+                                            Number</label>
+                                        <input type="text" id="settingExperienceYears" value="10+"
+                                            placeholder="e.g., 10+">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Experience Badge Text</label>
+                                        <input type="text" id="settingExperienceText" value="Years Experience"
+                                            placeholder="e.g., Years Experience">
+                                    </div>
+                                </div>
+                                <!-- Right Column -->
+                                <div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-paragraph" style="color: #27ae60;"></i> About Paragraph
+                                            1</label>
+                                        <textarea id="settingAboutParagraph1" rows="3"
+                                            placeholder="First paragraph of about section...">At Curry Crave, we believe food is more than sustenance—it's an experience. Our master chefs blend traditional recipes with modern techniques to create unforgettable culinary masterpieces.</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-paragraph" style="color: #27ae60;"></i> About Paragraph
+                                            2</label>
+                                        <textarea id="settingAboutParagraph2" rows="3"
+                                            placeholder="Second paragraph of about section...">With over a decade of excellence, we've served thousands of satisfied customers, earning their trust through quality, authenticity, and exceptional service.</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Feature Items -->
+                            <div style="margin-top: 15px;">
+                                <label
+                                    style="color: var(--cream); font-weight: 600; display: block; margin-bottom: 10px;"><i
+                                        class="fas fa-check-circle" style="color: #2ecc71;"></i> Feature Items (shown
+                                    with checkmarks)</label>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;">
+                                    <input type="text" id="settingFeature1" value="Fresh Ingredients"
+                                        placeholder="Feature 1">
+                                    <input type="text" id="settingFeature2" value="Expert Chefs"
+                                        placeholder="Feature 2">
+                                    <input type="text" id="settingFeature3" value="Fast Delivery"
+                                        placeholder="Feature 3">
+                                    <input type="text" id="settingFeature4" value="Premium Quality"
+                                        placeholder="Feature 4">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Social Media -->
+                    <div class="settings-card">
+                        <h3><i class="fas fa-share-alt"></i> Social Media Links</h3>
+                        <form class="settings-form" id="socialForm">
+                            <div class="form-group">
+                                <label><i class="fab fa-facebook" style="color: #1877f2;"></i> Facebook</label>
+                                <input type="url" id="settingFacebook" placeholder="https://facebook.com/yourpage">
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fab fa-instagram" style="color: #e4405f;"></i> Instagram</label>
+                                <input type="url" id="settingInstagram" placeholder="https://instagram.com/yourpage">
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fab fa-twitter" style="color: #1da1f2;"></i> Twitter</label>
+                                <input type="url" id="settingTwitter" placeholder="https://twitter.com/yourpage">
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fab fa-youtube" style="color: #ff0000;"></i> YouTube</label>
+                                <input type="url" id="settingYoutube" placeholder="https://youtube.com/yourchannel">
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Notifications -->
                     <div class="settings-card">
                         <h3><i class="fas fa-bell"></i> Notifications</h3>
                         <div class="settings-options">
                             <div class="option-item">
                                 <span>Email Notifications</span>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" checked>
+                                    <input type="checkbox" id="settingEmailNotif" checked>
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="option-item">
                                 <span>New Order Alerts</span>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" checked>
+                                    <input type="checkbox" id="settingOrderAlerts" checked>
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="option-item">
                                 <span>Low Stock Warnings</span>
                                 <label class="toggle-switch">
-                                    <input type="checkbox">
+                                    <input type="checkbox" id="settingStockWarnings">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Danger Zone -->
+                    <div class="settings-card" style="border: 1px solid #e74c3c;">
+                        <h3 style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                        <p style="color: var(--light-gold); margin-bottom: 15px;">Reset all settings to default values.
+                            This action cannot be undone.</p>
+                        <button type="button" class="delete-btn" id="resetSettingsBtn" style="width: auto;">
+                            <i class="fas fa-undo"></i> Reset to Defaults
+                        </button>
                     </div>
                 </div>
             </div>
@@ -462,6 +633,17 @@
                             <option value="Spicy">Spicy</option>
                             <option value="Sweet">Sweet</option>
                         </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rating (0-5) <i class="fas fa-star" style="color: #FFD700;"></i></label>
+                        <input type="number" id="itemRating" min="0" max="5" step="0.1" value="4.5"
+                            placeholder="e.g., 4.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Preparation Time (minutes)</label>
+                        <input type="number" id="itemPrepTime" min="5" max="120" value="30" placeholder="e.g., 30">
                     </div>
                 </div>
                 <div class="form-group">

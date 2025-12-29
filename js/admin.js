@@ -383,6 +383,9 @@ function showPage(pageName) {
         case 'analytics':
             loadAnalyticsData();
             break;
+        case 'settings':
+            loadSettingsData();
+            break;
     }
 }
 
@@ -432,6 +435,9 @@ async function loadDashboardData() {
         if (statsData.success) {
             updateDashboardStats(statsData.data);
             displayRecentOrders(statsData.data.recentOrders);
+
+            // Render sales overview chart
+            renderSalesOverviewChart(statsData.data.dailySales || []);
         }
 
         // Fetch top items
@@ -441,6 +447,98 @@ async function loadDashboardData() {
         console.error('Error loading dashboard data:', error);
         showToast('Failed to load dashboard data', 'error');
     }
+}
+
+// Sales Overview Chart for Dashboard
+let salesOverviewChart = null;
+
+function renderSalesOverviewChart(dailySales) {
+    const ctx = document.getElementById('salesChart');
+    if (!ctx) return;
+
+    // Destroy existing chart if exists
+    if (salesOverviewChart) {
+        salesOverviewChart.destroy();
+    }
+
+    // Generate last 7 days labels
+    const labels = [];
+    const salesData = [];
+
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        labels.push(date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' }));
+
+        // Find matching sales data or use 0
+        const dayStr = date.toISOString().split('T')[0];
+        const daySale = dailySales.find(d => d._id === dayStr || d.date === dayStr);
+        salesData.push(daySale ? daySale.revenue || daySale.total || 0 : 0);
+    }
+
+    salesOverviewChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue (₹)',
+                data: salesData,
+                borderColor: '#D4AF37',
+                backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3,
+                pointBackgroundColor: '#D4AF37',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#D4AF37',
+                    bodyColor: '#fff',
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function (context) {
+                            return '₹' + context.raw.toLocaleString('en-IN');
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(212, 175, 55, 0.1)'
+                    },
+                    ticks: {
+                        color: '#B8860B'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(212, 175, 55, 0.1)'
+                    },
+                    ticks: {
+                        color: '#B8860B',
+                        callback: function (value) {
+                            return '₹' + value.toLocaleString('en-IN');
+                        }
+                    },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
 }
 
 function updateDashboardStats(data) {
@@ -984,6 +1082,10 @@ async function loadMenuData() {
                         <h4 class="menu-item-name">${item.name}</h4>
                         <span class="menu-item-price">₹${item.price}</span>
                     </div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="color: #FFD700;"><i class="fas fa-star"></i> ${item.rating || 0}</span>
+                        <span style="color: var(--light-gold); font-size: 12px;">• ${item.preparationTime || 30} mins</span>
+                    </div>
                     <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px;">
                         ${item.badge ? `<span class="status-badge status-confirmed">${item.badge}</span>` : ''}
                         <span class="status-badge status-pending">${item.category}</span>
@@ -1083,6 +1185,10 @@ async function loadMenuData() {
                             <h4 class="menu-item-name">${item.name}</h4>
                             <span class="menu-item-price">₹${item.price}</span>
                         </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="color: #FFD700;"><i class="fas fa-star"></i> ${item.rating || 0}</span>
+                            <span style="color: var(--light-gold); font-size: 12px;">• ${item.preparationTime || 30} mins</span>
+                        </div>
                         <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px;">
                             ${item.badge ? `<span class="status-badge status-confirmed">${item.badge}</span>` : ''}
                             <span class="status-badge status-pending">${item.category}</span>
@@ -1128,12 +1234,16 @@ function openMenuModal(itemId = null) {
             document.getElementById('itemDescription').value = item.description;
             document.getElementById('itemImage').value = item.image || '';
             document.getElementById('itemBadge').value = item.badge || '';
+            document.getElementById('itemRating').value = item.rating || 0;
+            document.getElementById('itemPrepTime').value = item.preparationTime || 30;
             document.getElementById('itemAvailability').checked = item.isAvailable !== false;
         }
     } else {
         editingItemId = null;
         modalTitle.textContent = 'Add New Menu Item';
         document.getElementById('itemAvailability').checked = true;
+        document.getElementById('itemRating').value = 4.5;
+        document.getElementById('itemPrepTime').value = 30;
     }
 
     modal.classList.add('active');
@@ -1154,6 +1264,8 @@ async function saveMenuItem() {
         description: document.getElementById('itemDescription').value,
         image: document.getElementById('itemImage').value || 'assets/images/placeholder.jpg',
         badge: document.getElementById('itemBadge').value || null,
+        rating: parseFloat(document.getElementById('itemRating').value) || 0,
+        preparationTime: parseInt(document.getElementById('itemPrepTime').value) || 30,
         isAvailable: document.getElementById('itemAvailability').checked
     };
 
@@ -1816,4 +1928,203 @@ function displayRecentOrders(orders) {
             </tr>
         `;
     }).join('');
+}
+
+// ===== SETTINGS MANAGEMENT =====
+let currentSettings = null;
+
+async function loadSettingsData() {
+    try {
+        const response = await fetch(`${API_URL}/settings`);
+        const result = await response.json();
+
+        if (result.success && result.settings) {
+            currentSettings = result.settings;
+            populateSettingsForm(result.settings);
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        showToast('Failed to load settings. Using default values.', 'error');
+    }
+
+    // Setup event listeners
+    setupSettingsEventListeners();
+}
+
+function populateSettingsForm(settings) {
+    // Restaurant Information
+    document.getElementById('settingRestaurantName').value = settings.restaurantName || 'Curry Crave';
+    document.getElementById('settingTagline').value = settings.tagline || 'Premium Food Delivery';
+
+    // Contact Information
+    document.getElementById('settingEmail').value = settings.email || 'info@currycrave.com';
+    document.getElementById('settingSupportEmail').value = settings.supportEmail || 'support@currycrave.com';
+    document.getElementById('settingPhone').value = settings.phone || '+91 98765 43210';
+    document.getElementById('settingAlternatePhone').value = settings.alternatePhone || '+91 87654 32109';
+    document.getElementById('settingWhatsapp').value = settings.whatsappNumber || '+919876543210';
+
+    // Address
+    if (settings.address) {
+        document.getElementById('settingStreet').value = settings.address.street || '123 Food Street, Culinary District';
+        document.getElementById('settingCity').value = settings.address.city || 'Hyderabad';
+        document.getElementById('settingState').value = settings.address.state || 'Telangana';
+        document.getElementById('settingPincode').value = settings.address.pincode || '500001';
+    }
+
+    // Business Hours
+    if (settings.businessHours) {
+        document.getElementById('settingWeekdayHours').value = settings.businessHours.weekday || 'Mon - Sat: 10:00 AM - 11:00 PM';
+        document.getElementById('settingWeekendHours').value = settings.businessHours.weekend || 'Sunday: 11:00 AM - 10:00 PM';
+    }
+
+    // Social Media
+    if (settings.socialMedia) {
+        document.getElementById('settingFacebook').value = settings.socialMedia.facebook || '';
+        document.getElementById('settingInstagram').value = settings.socialMedia.instagram || '';
+        document.getElementById('settingTwitter').value = settings.socialMedia.twitter || '';
+        document.getElementById('settingYoutube').value = settings.socialMedia.youtube || '';
+    }
+
+    // Notification Settings
+    if (settings.notifications) {
+        document.getElementById('settingEmailNotif').checked = settings.notifications.emailNotifications !== false;
+        document.getElementById('settingOrderAlerts').checked = settings.notifications.newOrderAlerts !== false;
+        document.getElementById('settingStockWarnings').checked = settings.notifications.lowStockWarnings === true;
+    }
+
+    // About Section
+    if (settings.aboutSection) {
+        document.getElementById('settingAboutImage').value = settings.aboutSection.image || 'assets/images/about-chef.jpg';
+        document.getElementById('settingExperienceYears').value = settings.aboutSection.experienceYears || '10+';
+        document.getElementById('settingExperienceText').value = settings.aboutSection.experienceText || 'Years Experience';
+        document.getElementById('settingAboutParagraph1').value = settings.aboutSection.paragraph1 || '';
+        document.getElementById('settingAboutParagraph2').value = settings.aboutSection.paragraph2 || '';
+
+        if (settings.aboutSection.features) {
+            document.getElementById('settingFeature1').value = settings.aboutSection.features.feature1 || 'Fresh Ingredients';
+            document.getElementById('settingFeature2').value = settings.aboutSection.features.feature2 || 'Expert Chefs';
+            document.getElementById('settingFeature3').value = settings.aboutSection.features.feature3 || 'Fast Delivery';
+            document.getElementById('settingFeature4').value = settings.aboutSection.features.feature4 || 'Premium Quality';
+        }
+    }
+}
+
+function setupSettingsEventListeners() {
+    // Save All Settings Button
+    const saveBtn = document.getElementById('saveAllSettingsBtn');
+    if (saveBtn) {
+        saveBtn.onclick = saveAllSettings;
+    }
+
+    // Reset Settings Button
+    const resetBtn = document.getElementById('resetSettingsBtn');
+    if (resetBtn) {
+        resetBtn.onclick = resetSettings;
+    }
+}
+
+async function saveAllSettings() {
+    const saveBtn = document.getElementById('saveAllSettingsBtn');
+    const originalContent = saveBtn.innerHTML;
+
+    try {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+
+        const settingsData = {
+            restaurantName: document.getElementById('settingRestaurantName').value,
+            tagline: document.getElementById('settingTagline').value,
+            email: document.getElementById('settingEmail').value,
+            supportEmail: document.getElementById('settingSupportEmail').value,
+            phone: document.getElementById('settingPhone').value,
+            alternatePhone: document.getElementById('settingAlternatePhone').value,
+            whatsappNumber: document.getElementById('settingWhatsapp').value,
+            address: {
+                street: document.getElementById('settingStreet').value,
+                city: document.getElementById('settingCity').value,
+                state: document.getElementById('settingState').value,
+                pincode: document.getElementById('settingPincode').value
+            },
+            businessHours: {
+                weekday: document.getElementById('settingWeekdayHours').value,
+                weekend: document.getElementById('settingWeekendHours').value
+            },
+            socialMedia: {
+                facebook: document.getElementById('settingFacebook').value,
+                instagram: document.getElementById('settingInstagram').value,
+                twitter: document.getElementById('settingTwitter').value,
+                youtube: document.getElementById('settingYoutube').value
+            },
+            notifications: {
+                emailNotifications: document.getElementById('settingEmailNotif').checked,
+                newOrderAlerts: document.getElementById('settingOrderAlerts').checked,
+                lowStockWarnings: document.getElementById('settingStockWarnings').checked
+            },
+            aboutSection: {
+                image: document.getElementById('settingAboutImage').value,
+                experienceYears: document.getElementById('settingExperienceYears').value,
+                experienceText: document.getElementById('settingExperienceText').value,
+                paragraph1: document.getElementById('settingAboutParagraph1').value,
+                paragraph2: document.getElementById('settingAboutParagraph2').value,
+                features: {
+                    feature1: document.getElementById('settingFeature1').value,
+                    feature2: document.getElementById('settingFeature2').value,
+                    feature3: document.getElementById('settingFeature3').value,
+                    feature4: document.getElementById('settingFeature4').value
+                }
+            }
+        };
+
+        const response = await fetch(`${API_URL}/settings`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getAuthToken()}`
+            },
+            body: JSON.stringify(settingsData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            currentSettings = result.settings;
+            showToast('✅ Settings saved successfully!');
+        } else {
+            throw new Error(result.message || 'Failed to save settings');
+        }
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showToast('❌ Failed to save settings. Please try again.', 'error');
+    } finally {
+        saveBtn.innerHTML = originalContent;
+        saveBtn.disabled = false;
+    }
+}
+
+async function resetSettings() {
+    if (!confirm('Are you sure you want to reset all settings to default values? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/settings/reset`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${getAuthToken()}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            currentSettings = result.settings;
+            populateSettingsForm(result.settings);
+            showToast('✅ Settings reset to defaults successfully!');
+        } else {
+            throw new Error(result.message || 'Failed to reset settings');
+        }
+    } catch (error) {
+        console.error('Error resetting settings:', error);
+        showToast('❌ Failed to reset settings. Please try again.', 'error');
+    }
 }

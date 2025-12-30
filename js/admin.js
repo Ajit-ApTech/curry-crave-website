@@ -393,6 +393,7 @@ function showPage(pageName) {
 function setupSidebar() {
     const sidebarToggle = document.getElementById('sidebarToggle');
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const sidebarClose = document.getElementById('sidebarClose');
     const sidebar = document.getElementById('sidebar');
 
     sidebarToggle?.addEventListener('click', function () {
@@ -401,6 +402,11 @@ function setupSidebar() {
 
     mobileMenuToggle?.addEventListener('click', function () {
         sidebar.classList.toggle('active');
+    });
+
+    // Close sidebar when X button is clicked
+    sidebarClose?.addEventListener('click', function () {
+        sidebar.classList.remove('active');
     });
 }
 
